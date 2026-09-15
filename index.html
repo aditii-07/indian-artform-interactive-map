@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Map of Indian Art</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html, body { 
+    height: 100%; 
+    margin: 0; 
+    font-family: Arial, sans-serif; 
+    background: #eef2e6; 
+}
+header { 
+    background: #2d4a3e; 
+    color: #fff; 
+    padding: 15px; 
+    text-align: center; 
+}
+#map { 
+    height: calc(100vh - 80px); 
+    width: 100%; 
+}
+.legend { 
+    padding: 8px 12px; 
+    background: white; 
+    border-radius: 8px; 
+    box-shadow: 0 1px 5px #777; 
+}
+/* Styling for images inside popups */
+.popup-img {
+    width: 100%;
+    max-height: 150px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-top: 8px;
+}
+.leaflet-popup-content {
+    width: 220px !important;
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>Interactive Map: Important Locations in Indian Art History</h1>
+    <p>Click each marker to explore the location, art tradition and historical context.</p>
+</header>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Initialize map centered over India
+const map = L.map('map').setView([22.5, 79.0], 5);
+
+// Add OpenStreetMap base tiles
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+// Array of art locations, metadata, and image URLs (Index 6)
+const places = [
+    [
+        "Kangra Valley",
+        32.099,
+        76.271,
+        "Himachal Pradesh",
+        "Kangra miniature painting",
+        "Kangra developed a delicate style of miniature painting known for lyrical, romantic themes and soft colour palettes.",
+        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kangra_Painting.jpg"
+    ],
+
+    [
+        "Nathdwara",
+        24.933,
+        73.816,
+        "Rajasthan",
+        "Pichwai painting",
+        "Nathdwara is known for Pichwai paintings, large devotional cloth paintings traditionally hung behind temple deities.",
+        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Shrinathji_Swaroop.png"
+    ],
+
+    [
+        "Srikalahasti",
+        13.75,
+        79.7,
+        "Andhra Pradesh",
+        "Kalamkari painting",
+        "Srikalahasti is a centre for hand-painted Kalamkari using natural dyes and a fine bamboo pen, mostly on mythological themes.",
+        "https://commons.wikimedia.org/wiki/Special:Redirect/file/KALAMKARI_HAND_PAINTED_CLOTH_SRIKALAHASTI_AP_-_panoramio.jpg"
+    ],
+
+    [
+        "Mysore",
+        12.295,
+        76.639,
+        "Karnataka",
+        "Mysore painting",
+        "Mysore painting is known for delicate lines, muted colours and gesso work, often depicting Hindu gods and royal court scenes.",
+        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Mysore_Painting.jpg"
+    ],
+
+    [
+        "Kolkata",
+        22.572,
+        88.363,
+        "West Bengal",
+        "Kalighat painting",
+        "Kalighat painting emerged near the Kalighat temple, known for bold brush strokes and satirical, everyday subjects.",
+        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Shiva_and_Parvati,_Crafts_Museum,_New_Delhi.jpg"
+    ],
+
+    [
+        "Bastar",
+        19.1,
+        81.95,
+        "Chhattisgarh",
+        "Dhokra metal craft",
+        "Bastar is known for Dhokra, an ancient lost-wax metal casting technique used to create tribal figures and motifs.",
+        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Dokra_from_tribes_of_Bastar_DSCN1172_03.jpg"
+    ],
+
+    [
+        "Raghurajpur",
+        19.878,
+        85.68,
+        "Odisha",
+        "Patachitra artisan village",
+        "Raghurajpur is a heritage crafts village where artisan families practice traditional Patachitra painting and palm-leaf engraving.",
+        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Raghurajpur_1a.jpg"
+    ],
+
+    [
+        "Channapatna",
+        12.65,
+        77.206,
+        "Karnataka",
+        "Wooden toy craft",
+        "Channapatna is known for lacquered wooden toys and figures, a craft tradition dating back over two centuries.",
+        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Channapatna-toys.jpg"
+    ]
+];
+
+// Loop through locations to add markers and popups with images
+places.forEach(p => {
+    let m = L.marker([p[1], p[2]]).addTo(map);
+    m.bindPopup(`
+        <div>
+            <h2>${p[0]}</h2>
+            <b>Region:</b> ${p[3]}<br>
+            <b>Art tradition:</b> ${p[4]}
+            <p>${p[5]}</p>
+            <img src="${p[6]}" alt="${p[4]}" class="popup-img">
+        </div>
+    `);
+});
+
+// Add a control legend box to the bottom right of the map
+const legend = L.control({position: 'bottomright'});
+legend.onAdd = () => {
+    let d = L.DomUtil.create('div', 'legend');
+    d.innerHTML = '<b>How to use</b><br>🔎 Zoom with + / −<br>📍 Click a marker for details';
+    return d;
+};
+legend.addTo(map);
+</script>
+</body>
+</html>
