@@ -3,168 +3,933 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Interactive Map of Indian Art</title>
+<title>Art Trails of India — Interactive Heritage Map</title>
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<!-- FontAwesome Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          obsidian: '#0d1117',
+          surface: '#161b22',
+          surfaceLight: '#21262d',
+          emeraldGlow: {
+            DEFAULT: '#10b981',
+            hover: '#059669',
+            dim: 'rgba(16, 185, 129, 0.15)'
+          },
+          amberGlow: {
+            DEFAULT: '#f59e0b',
+            hover: '#d97706',
+            dim: 'rgba(245, 158, 11, 0.15)'
+          },
+          textMain: '#f0f6fc',
+          textMuted: '#8b949e',
+          borderCustom: '#30363d'
+        },
+        fontFamily: {
+          sans: ['Plus Jakarta Sans', 'sans-serif'],
+          serif: ['Cinzel', 'serif'],
+        }
+      }
+    }
+  }
+</script>
+
 <style>
-html, body { 
-    height: 100%; 
-    margin: 0; 
-    font-family: Arial, sans-serif; 
-    background: #eef2e6; 
-}
-header { 
-    background: #2d4a3e; 
-    color: #fff; 
-    padding: 15px; 
-    text-align: center; 
-}
-#map { 
-    height: calc(100vh - 80px); 
-    width: 100%; 
-}
-.legend { 
-    padding: 8px 12px; 
-    background: white; 
-    border-radius: 8px; 
-    box-shadow: 0 1px 5px #777; 
-}
-/* Styling for images inside popups */
-.popup-img {
-    width: 100%;
-    max-height: 150px;
-    object-fit: cover;
-    border-radius: 4px;
-    margin-top: 8px;
-}
-.leaflet-popup-content {
-    width: 220px !important;
-}
+  /* Custom Dark Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0d1117;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #10b981;
+  }
+
+  /* Map Container Dark Adjustments */
+  .leaflet-container {
+    background-color: #0d1117 !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+  }
+
+  /* Custom Glow Marker Pin */
+  .jewel-marker-pin {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .jewel-marker-pin:hover {
+    transform: scale(1.25) translateY(-4px);
+  }
+
+  .jewel-marker-pin.active {
+    transform: scale(1.35) translateY(-6px);
+    z-index: 1000 !important;
+  }
+
+  .marker-pulse-ring {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.5) 0%, rgba(16, 185, 129, 0) 70%);
+    animation: jewelPulse 2s infinite ease-out;
+  }
+
+  .jewel-marker-pin.active .marker-pulse-ring {
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.7) 0%, rgba(245, 158, 11, 0) 75%);
+    animation-duration: 1.2s;
+  }
+
+  @keyframes jewelPulse {
+    0% { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(2.0); opacity: 0; }
+  }
+
+  /* Glassmorphism Panels */
+  .glass-dark {
+    background: rgba(22, 27, 34, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(48, 54, 61, 0.8);
+  }
+
+  /* Custom Leaflet Dark Popup */
+  .leaflet-popup-content-wrapper {
+    background: rgba(22, 27, 34, 0.95) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid #30363d !important;
+    border-radius: 16px !important;
+    color: #f0f6fc !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6) !important;
+    padding: 2px !important;
+  }
+  .leaflet-popup-tip {
+    background: #161b22 !important;
+  }
+  .leaflet-popup-content {
+    margin: 12px 14px !important;
+    line-height: 1.4 !important;
+  }
 </style>
 </head>
-<body>
-<header>
-    <h1>Interactive Map: Important Locations in Indian Art History</h1>
-    <p>Click each marker to explore the location, art tradition and historical context.</p>
+<body class="bg-obsidian text-textMain font-sans antialiased h-screen overflow-hidden flex flex-col">
+
+<!-- Header Navigation -->
+<header class="bg-surface/90 backdrop-blur-md border-b border-borderCustom px-4 md:px-6 py-3 z-30 shrink-0 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-3">
+  
+  <!-- Branding Title -->
+  <div class="flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emeraldGlow to-amberGlow flex items-center justify-center text-obsidian shadow-lg shadow-emeraldGlow/20">
+      <i class="fa-solid fa-gem text-lg"></i>
+    </div>
+    <div>
+      <div class="flex items-center gap-2">
+        <h1 class="font-serif text-lg md:text-xl font-bold tracking-wider text-textMain">ART TRAILS OF INDIA</h1>
+        <span id="totalBadge" class="bg-emeraldGlow/20 text-emeraldGlow border border-emeraldGlow/30 font-semibold text-[10px] px-2 py-0.5 rounded-full">22 Traditions</span>
+      </div>
+      <p class="text-xs text-textMuted">Explore India's rich regional living art heritage on an interactive map</p>
+    </div>
+  </div>
+
+  <!-- Search & View Toggles -->
+  <div class="flex items-center gap-3">
+    <!-- Live Search Input -->
+    <div class="relative flex-1 md:w-80">
+      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-textMuted text-xs"></i>
+      <input 
+        type="text" 
+        id="searchInput" 
+        placeholder="Search art, state, material, region..." 
+        class="w-full bg-surfaceLight border border-borderCustom rounded-full pl-9 pr-8 py-2 text-xs font-medium text-textMain placeholder-textMuted focus:outline-none focus:border-emeraldGlow focus:ring-1 focus:ring-emeraldGlow transition-all"
+      >
+      <button id="clearSearch" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-textMuted hover:text-emeraldGlow text-xs">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Mobile View Mode Toggle -->
+    <div class="flex md:hidden bg-surfaceLight p-1 rounded-full border border-borderCustom">
+      <button id="mobileViewList" class="px-3 py-1 text-xs font-semibold rounded-full bg-emeraldGlow text-obsidian shadow-sm">Cards</button>
+      <button id="mobileViewMap" class="px-3 py-1 text-xs font-semibold rounded-full text-textMuted">Map</button>
+    </div>
+  </div>
+
 </header>
 
-<div id="map"></div>
+<!-- Category Filter Pills Bar -->
+<nav class="bg-surface/50 border-b border-borderCustom px-4 md:px-6 py-2.5 z-20 shrink-0 flex items-center justify-between gap-3 overflow-x-auto no-scrollbar">
+  <div class="flex items-center gap-2 shrink-0">
+    <span class="text-xs font-bold text-amberGlow uppercase tracking-wider mr-1"><i class="fa-solid fa-filter mr-1.5"></i>Category:</span>
+    <div class="flex items-center gap-2" id="filterPillGroup">
+      <button data-category="All" class="filter-pill active px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all bg-emeraldGlow text-obsidian shadow-md">All Traditions</button>
+      <button data-category="Paintings" class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all bg-surfaceLight border border-borderCustom text-textMuted hover:text-textMain hover:border-emeraldGlow">Paintings</button>
+      <button data-category="Metal & Crafts" class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all bg-surfaceLight border border-borderCustom text-textMuted hover:text-textMain hover:border-emeraldGlow">Metal & Crafts</button>
+      <button data-category="Textiles & Toys" class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all bg-surfaceLight border border-borderCustom text-textMuted hover:text-textMain hover:border-emeraldGlow">Textiles & Toys</button>
+    </div>
+  </div>
 
+  <div class="hidden lg:flex items-center gap-2 text-xs text-textMuted shrink-0">
+    <span class="w-2 h-2 rounded-full bg-emeraldGlow"></span>
+    <span id="filteredCountText">22 of 22 locations shown</span>
+  </div>
+</nav>
+
+<!-- Main Workspace Layout -->
+<div class="flex-1 flex relative overflow-hidden">
+
+  <!-- Left Sidebar Card Feed -->
+  <section id="sidebarSection" class="w-full md:w-[420px] lg:w-[460px] h-full bg-surface border-r border-borderCustom flex flex-col shrink-0 z-10 transition-transform duration-300">
+    
+    <!-- Feed Header Bar -->
+    <div class="px-5 py-2.5 bg-obsidian/40 border-b border-borderCustom flex items-center justify-between text-xs text-textMuted">
+      <span id="feedStatusLabel">Showing all art forms</span>
+      <span class="text-amberGlow font-medium"><i class="fa-solid fa-location-crosshairs mr-1"></i>Click card to locate</span>
+    </div>
+
+    <!-- Scrollable Cards Feed -->
+    <div id="cardsContainer" class="flex-1 overflow-y-auto p-4 space-y-3.5">
+      <!-- Dynamic Location Cards JavaScript insertion -->
+    </div>
+
+  </section>
+
+  <!-- Right Pane: Leaflet Map -->
+  <main id="mapSection" class="flex-1 h-full w-full relative">
+    <div id="map" class="h-full w-full"></div>
+
+    <!-- Reset View Floating Button -->
+    <div class="absolute top-4 right-4 z-[10]">
+      <button id="resetMapBounds" class="glass-dark px-4 py-2.5 rounded-full shadow-2xl text-textMain hover:text-emeraldGlow font-semibold text-xs transition-all flex items-center gap-2 hover:border-emeraldGlow/50">
+        <i class="fa-solid fa-rotate text-amberGlow"></i>
+        <span>Reset Map Focus</span>
+      </button>
+    </div>
+
+    <!-- Map Legend -->
+    <div class="absolute bottom-5 left-5 z-[10] glass-dark px-4 py-2.5 rounded-2xl border border-borderCustom text-xs hidden sm:flex items-center gap-4 shadow-xl">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-amberGlow inline-block border border-obsidian"></span>
+        <span class="font-medium text-textMain">Active Selection</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-emeraldGlow inline-block border border-obsidian"></span>
+        <span class="font-medium text-textMain">Art Tradition Marker</span>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<!-- Full Detail Heritage Modal Overlay -->
+<div id="detailModal" class="fixed inset-0 z-50 bg-obsidian/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+  
+  <div id="modalCard" class="bg-surface border border-borderCustom rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col transform scale-95 transition-transform duration-300">
+    
+    <!-- Modal Hero Banner -->
+    <div class="relative h-60 md:h-72 w-full overflow-hidden bg-obsidian shrink-0">
+      <img id="modalHeroImg" src="" alt="" class="w-full h-full object-cover">
+      <div class="absolute inset-0 bg-gradient-to-t from-surface via-obsidian/40 to-transparent"></div>
+
+      <!-- Close Button -->
+      <button id="closeModalBtn" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-surface/80 backdrop-blur-md border border-borderCustom text-textMain hover:bg-emeraldGlow hover:text-obsidian flex items-center justify-center shadow-lg transition-all">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <!-- Overlay Metadata -->
+      <div class="absolute bottom-4 left-6 right-6 flex flex-col items-start gap-1">
+        <div class="flex items-center gap-2">
+          <span id="modalStateTag" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emeraldGlow text-obsidian shadow-sm">State</span>
+          <span id="modalCategoryTag" class="px-3 py-1 rounded-full text-xs font-semibold bg-amberGlow/20 text-amberGlow border border-amberGlow/30">Category</span>
+        </div>
+        <h2 id="modalTitle" class="font-serif text-2xl md:text-3xl font-bold text-textMain drop-shadow-md">Location Name</h2>
+      </div>
+    </div>
+
+    <!-- Modal Body Content -->
+    <div class="p-6 md:p-8 overflow-y-auto space-y-5 flex-1 bg-surface">
+      
+      <!-- Art Tradition Title Banner -->
+      <div class="bg-surfaceLight border border-borderCustom rounded-2xl p-4 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-amberGlow/20 border border-amberGlow/40 text-amberGlow flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-palette text-lg"></i>
+        </div>
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-emeraldGlow">Art Tradition</h3>
+          <p id="modalTradition" class="font-serif text-lg font-bold text-textMain">Tradition Name</p>
+        </div>
+      </div>
+
+      <!-- Historical Significance -->
+      <div>
+        <h4 class="font-serif text-sm font-bold text-amberGlow mb-1.5 uppercase tracking-wide flex items-center gap-2">
+          <i class="fa-solid fa-scroll"></i> Historical Context & Heritage
+        </h4>
+        <p id="modalHistory" class="text-sm text-textMuted leading-relaxed">Historical narrative...</p>
+      </div>
+
+      <!-- Key Materials & Motifs Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        <div class="bg-obsidian/60 border border-borderCustom rounded-2xl p-4">
+          <h5 class="text-xs font-bold uppercase tracking-wider text-emeraldGlow mb-1"><i class="fa-solid fa-vial mr-1.5"></i> Medium & Materials</h5>
+          <p id="modalMaterials" class="text-xs text-textMuted leading-relaxed">Materials details...</p>
+        </div>
+        <div class="bg-obsidian/60 border border-borderCustom rounded-2xl p-4">
+          <h5 class="text-xs font-bold uppercase tracking-wider text-amberGlow mb-1"><i class="fa-solid fa-feather-pointed mr-1.5"></i> Key Motifs & Themes</h5>
+          <p id="modalMotifs" class="text-xs text-textMuted leading-relaxed">Motifs details...</p>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="pt-4 border-t border-borderCustom flex items-center justify-between">
+        <span class="text-xs font-mono text-textMuted" id="modalCoords"><i class="fa-solid fa-location-dot text-emeraldGlow mr-1"></i> Lat, Lng</span>
+        <button id="modalLocateBtn" class="px-5 py-2.5 rounded-full bg-emeraldGlow text-obsidian font-bold text-xs shadow-lg hover:bg-emeraldGlow-hover transition-all flex items-center gap-2">
+          <i class="fa-solid fa-map-location-dot"></i> Locate on Map
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
-// Initialize map centered over India
-const map = L.map('map').setView([22.5, 79.0], 5);
-
-// Add OpenStreetMap base tiles
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '© OpenStreetMap contributors'
-}).addTo(map);
-
-// Array of art locations, metadata, and image URLs (Index 6)
-const places = [
-    [
-        "Kangra Valley",
-        32.099,
-        76.271,
-        "Himachal Pradesh",
-        "Kangra miniature painting",
-        "Kangra developed a delicate style of miniature painting known for lyrical, romantic themes and soft colour palettes.",
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kangra_Painting.jpg"
-    ],
-
-    [
-        "Nathdwara",
-        24.933,
-        73.816,
-        "Rajasthan",
-        "Pichwai painting",
-        "Nathdwara is known for Pichwai paintings, large devotional cloth paintings traditionally hung behind temple deities.",
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Shrinathji_Swaroop.png"
-    ],
-
-    [
-        "Srikalahasti",
-        13.75,
-        79.7,
-        "Andhra Pradesh",
-        "Kalamkari painting",
-        "Srikalahasti is a centre for hand-painted Kalamkari using natural dyes and a fine bamboo pen, mostly on mythological themes.",
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/KALAMKARI_HAND_PAINTED_CLOTH_SRIKALAHASTI_AP_-_panoramio.jpg"
-    ],
-
-    [
-        "Mysore",
-        12.295,
-        76.639,
-        "Karnataka",
-        "Mysore painting",
-        "Mysore painting is known for delicate lines, muted colours and gesso work, often depicting Hindu gods and royal court scenes.",
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Mysore_Painting.jpg"
-    ],
-
-    [
-        "Kolkata",
-        22.572,
-        88.363,
-        "West Bengal",
-        "Kalighat painting",
-        "Kalighat painting emerged near the Kalighat temple, known for bold brush strokes and satirical, everyday subjects.",
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Shiva_and_Parvati,_Crafts_Museum,_New_Delhi.jpg"
-    ],
-
-    [
-        "Bastar",
-        19.1,
-        81.95,
-        "Chhattisgarh",
-        "Dhokra metal craft",
-        "Bastar is known for Dhokra, an ancient lost-wax metal casting technique used to create tribal figures and motifs.",
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Dokra_from_tribes_of_Bastar_DSCN1172_03.jpg"
-    ],
-
-    [
-        "Raghurajpur",
-        19.878,
-        85.68,
-        "Odisha",
-        "Patachitra artisan village",
-        "Raghurajpur is a heritage crafts village where artisan families practice traditional Patachitra painting and palm-leaf engraving.",
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Raghurajpur_1a.jpg"
-    ],
-
-    [
-        "Channapatna",
-        12.65,
-        77.206,
-        "Karnataka",
-        "Wooden toy craft",
-        "Channapatna is known for lacquered wooden toys and figures, a craft tradition dating back over two centuries.",
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Channapatna-toys.jpg"
-    ]
+const artLocations = [
+  {
+    id: 'kangra',
+    name: "Kangra Valley",
+    lat: 32.099,
+    lng: 76.271,
+    state: "Himachal Pradesh",
+    category: "Paintings",
+    tradition: "Kangra Miniature Painting",
+    summary: "Lyrical Pahari miniature paintings depicting romantic themes and verdant hill landscapes with natural pigments.",
+    history: "Flourished under the patronage of Raja Sansar Chand in the late 18th century. Known for delicate draughtsmanship, soft natural colors, and poetic expression inspired by Jayadeva's Gita Govinda.",
+    materials: "Fine brushes made from squirrel hair, handmade Sialkoti paper, organic mineral and floral pigments, pure gold dusting.",
+    motifs: "Radha & Krishna in forest groves, Ragamala compositions, flowing drapery, and lush green hills.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kangra_Painting.jpg"
+  },
+  {
+    id: 'nathdwara',
+    name: "Nathdwara",
+    lat: 24.933,
+    lng: 73.816,
+    state: "Rajasthan",
+    category: "Paintings",
+    tradition: "Pichwai Painting",
+    summary: "Devotional cloth paintings hung behind deity idols in temples, rich in gold highlights and cow motifs.",
+    history: "Developed over 400 years ago around the Shrinathji temple in Nathdwara. Created by artisan guilds to depict seasonal festivals and divine pastimes.",
+    materials: "Handspun cotton cloth, natural stone colors, zinc oxide, gum arabic, pure gold leaf overlay.",
+    motifs: "Shrinathji manifestation, sacred cows (Kamadhenu), lotus ponds, peacocks, and festival scenes like Annakut.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Shrinathji_Swaroop.png"
+  },
+  {
+    id: 'srikalahasti',
+    name: "Srikalahasti",
+    lat: 13.75,
+    lng: 79.7,
+    state: "Andhra Pradesh",
+    category: "Textiles & Toys",
+    tradition: "Kalamkari Painting",
+    summary: "Hand-painted textile narrative art executed using a sharp bamboo pen and organic vegetable dyes.",
+    history: "Flourished under Vijayanagara royal patronage. Unlike block-printed styles, Srikalahasti Kalamkari is completely hand-drawn, portraying temple lore.",
+    materials: "Handloom cotton cloth, bamboo pen (Kalam), myrobalan seed dip, cow dung bleach, madder root, indigo.",
+    motifs: "Epics from Ramayana and Mahabharata, divine chariots, trees of life, floral vine borders.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/KALAMKARI_HAND_PAINTED_CLOTH_SRIKALAHASTI_AP_-_panoramio.jpg"
+  },
+  {
+    id: 'mysore',
+    name: "Mysore",
+    lat: 12.295,
+    lng: 76.639,
+    state: "Karnataka",
+    category: "Paintings",
+    tradition: "Mysore Painting",
+    summary: "Classical painting featuring delicate lines, muted jewel tones, and subtle gesso gold leaf embossing.",
+    history: "Patronized by the Wodeyar dynasty of Mysore after the fall of the Vijayanagara empire. Celebrated for elegance and divine warmth.",
+    materials: "Paper pasted on wood, gesso paste (lead white & gamboge), 24-karat unpolished gold leaf foil.",
+    motifs: "Goddess Rajarajeshwari, Kodandarama, royal durbars, classical Hindu deities.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Mysore_Painting.jpg"
+  },
+  {
+    id: 'kolkata',
+    name: "Kolkata",
+    lat: 22.572,
+    lng: 88.363,
+    state: "West Bengal",
+    category: "Paintings",
+    tradition: "Kalighat Painting",
+    summary: "Expressive 19th-century watercolor art featuring bold single-stroke outlines and urban social satire.",
+    history: "Originated near the Kalighat Kali temple when migrant scroll painters adapted to cheap imported mill paper to sell quick souvenirs to urban pilgrims.",
+    technique: "Sweeping ink outlines, shaded watercolors creating volumetric depth, swift execution.",
+    materials: "Mill paper, water-based paints, lampblack ink, flat sable brushes.",
+    motifs: "Goddess Kali, babu culture satires, street animals, domestic proverbs.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Shiva_and_Parvati,_Crafts_Museum,_New_Delhi.jpg"
+  },
+  {
+    id: 'bastar',
+    name: "Bastar",
+    lat: 19.1,
+    lng: 81.95,
+    state: "Chhattisgarh",
+    category: "Metal & Crafts",
+    tradition: "Dhokra Metal Craft",
+    summary: "Ancient non-ferrous lost-wax metal casting technique creating textured tribal figurines and lamps.",
+    history: "Practiced by the Ghadwa tribal community for over 4,000 years, retaining direct heritage connection to the Indus Valley Dancing Girl figurine.",
+    materials: "Beeswax, clay, river sand, brass scrap, bronze alloys, furnace coal pits.",
+    motifs: "Tribal deities, elephants, hornblowers, ritual oil lamps, village life.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Dokra_from_tribes_of_Bastar_DSCN1172_03.jpg"
+  },
+  {
+    id: 'raghurajpur',
+    name: "Raghurajpur",
+    lat: 19.878,
+    lng: 85.68,
+    state: "Odisha",
+    category: "Paintings",
+    tradition: "Patachitra Scroll Painting",
+    summary: "Intricate cloth scroll paintings and etched palm-leaf manuscripts celebrating Lord Jagannath.",
+    history: "Heritage craft village where every family is an artisan household. Closely linked with the ritual arts of the Puri Jagannath Temple since the 12th century.",
+    materials: "Cotton canvas coated with chalk and tamarind paste, iron stylus for palm leaves, sea-shell white powder, natural dyes.",
+    motifs: "Jagannath triad, Dasavatara, Kalia Daman, intricate geometric borders.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Raghurajpur_1a.jpg"
+  },
+  {
+    id: 'channapatna',
+    name: "Channapatna",
+    lat: 12.65,
+    lng: 77.206,
+    state: "Karnataka",
+    category: "Textiles & Toys",
+    tradition: "Lacquered Wooden Toys",
+    summary: "Smooth, turned wooden toys coated with non-toxic natural lacquer colors.",
+    history: "Introduced by Tipu Sultan in the late 18th century, who invited Persian artisans to train local woodturners in lathe techniques.",
+    materials: "Wrightia tinctoria wood (Aale mara), natural shellac, vegetable dyes, turmeric, indigo, kumkum.",
+    motifs: "Marapachi dolls, nesting toys, spinning tops, polished wooden beads.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Channapatna-toys.jpg"
+  },
+  {
+    id: 'madhubani',
+    name: "Madhubani",
+    lat: 26.35,
+    lng: 86.07,
+    state: "Bihar",
+    category: "Paintings",
+    tradition: "Madhubani / Mithila Painting",
+    summary: "Vibrant folk painting characterized by double outlines, dense geometric filling, and nature symbolism.",
+    history: "Traditionally drawn by women on freshly plastered mud walls during festivals and weddings. Brought to international prominence after 1960s drought relief projects.",
+    materials: "Handmade paper, bamboo twigs, rice paste, natural dyes from turmeric, indigo, soot, and leaves.",
+    motifs: "Tree of Life, fish (fertility), sun, moon, Radha-Krishna, Kohbar wedding chambers.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Madhubani_art.jpg"
+  },
+  {
+    id: 'thanjavur',
+    name: "Thanjavur",
+    lat: 10.787,
+    lng: 79.137,
+    state: "Tamil Nadu",
+    category: "Paintings",
+    tradition: "Tanjore Gold-Leaf Painting",
+    summary: "Opulent South Indian panel painting adorned with raised gesso work, precious stones, and pure gold foil.",
+    history: "Flourished under Chola patronage and later codified under Maratha rulers of Tanjore in the 16th-18th centuries.",
+    materials: "Jackwood wooden boards, unboiled limestone gesso paste, Jaipur glass beads/gemstones, 22-karat gold leaf.",
+    motifs: "Balakrishna with butter pot, Goddess Lakshmi, Lord Murugan, ornate archways (Prabhavali).",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tanjore_painting_Ganesha.jpg"
+  },
+  {
+    id: 'nirona',
+    name: "Nirona",
+    lat: 23.383,
+    lng: 69.383,
+    state: "Gujarat",
+    category: "Textiles & Toys",
+    tradition: "Rogan Textile Art",
+    summary: "Rare craft of painting fabric using boiled castor oil paste applied with a metal stylus without touching the cloth.",
+    history: "Preserved solely by the Khatri family of Nirona, Kutch for over 300 years. Once used to decorate bridal skirts and shawls.",
+    materials: "Boiled castor seed oil residue mixed with mineral pigments, brass stylus rod, heavy cotton cloth.",
+    motifs: "Tree of Life, peacock pairs, geometric floral symmetry, intricate lace patterns.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Rogan_painting_art_Nirona_Kutch.jpg"
+  },
+  {
+    id: 'palghar',
+    name: "Palghar",
+    lat: 19.696,
+    lng: 72.765,
+    state: "Maharashtra",
+    category: "Paintings",
+    tradition: "Warli Tribal Painting",
+    summary: "Monochromatic tribal wall art composed of basic geometric shapes like triangles, circles, and lines.",
+    history: "An ancient ritual art practiced by the Warli tribe in the Western Ghats, popularized globally by legendary master artist Jivya Soma Mashe.",
+    materials: "Red ochre mud background, white paste made from rice powder, gum, and chewed bamboo sticks.",
+    motifs: "Tarpa dance circle, harvest rituals, mother nature (Palghat goddess), hunting scenes, village huts.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Warli_painting_tribal_art.jpg"
+  },
+  {
+    id: 'patangarh',
+    name: "Patangarh",
+    lat: 22.95,
+    lng: 81.1,
+    state: "Madhya Pradesh",
+    category: "Paintings",
+    tradition: "Gond Tribal Painting",
+    summary: "Intricate tribal art where vibrant figures are rendered through signature signature repeating line and dot patterns.",
+    history: "Originating from the Pardhan Gond community in Patangarh village, transformed into contemporary paper and canvas art by pioneer Jangarh Singh Shyam.",
+    materials: "Canvas, acrylics, fine liner pens, natural mineral colors, leaves, sap, and earth.",
+    motifs: "Sacred trees, mythic forest animals, birds, river spirits, tribal folklore.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Gond_painting_tribal_art.jpg"
+  },
+  {
+    id: 'majuli',
+    name: "Majuli Island",
+    lat: 26.95,
+    lng: 94.16,
+    state: "Assam",
+    category: "Metal & Crafts",
+    tradition: "Sattriya Mask Making",
+    summary: "Traditional bamboo and clay masks used in neo-Vaishnavite theatrical performances (Bhaona).",
+    history: "Pioneered by saint-reformer Srimanta Sankardeva in the 15th century inside the river island Satras (monasteries) of Majuli.",
+    materials: "Split bamboo framework, cane, clay from Brahmaputra riverbanks, cow dung, cloth, natural paints.",
+    motifs: "Demon king Ravana, Narasimha, Garuda, Hanuman, mythological characters.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Majuli_mask_making_Assam.jpg"
+  },
+  {
+    id: 'almora',
+    name: "Almora",
+    lat: 29.597,
+    lng: 79.659,
+    state: "Uttarakhand",
+    category: "Paintings",
+    tradition: "Aipan Ritual Art",
+    summary: "Sacred geometric floor and wall art crafted during auspicious ceremonies in the Kumaon hills.",
+    history: "Practiced by Kumaoni women across generations as a ritualistic welcome art for home entrances and puja altars.",
+    materials: "Red mud base (Geru), white rice flour paste (Biswar), applied using fingertips.",
+    motifs: "Lakshmi footprints, Swastika, Ashtadal lotus, geometric Chowkis, hill flora.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aipan_art_Uttarakhand.jpg"
+  },
+  {
+    id: 'cheriyal',
+    name: "Cheriyal",
+    lat: 17.93,
+    lng: 79.16,
+    state: "Telangana",
+    category: "Paintings",
+    tradition: "Cheriyal Scroll Painting",
+    summary: "Narrative scroll art painted on khadi cloth depicting folklore stories presented by traveling bards.",
+    history: "A stylized variant of Nakashi art practiced in Siddipet district, traditionally used by balladeers to narrate village legends.",
+    materials: "Khadi canvas treated with tamarind seed paste and white clay, squirrel hair brushes, natural dyes.",
+    motifs: "Local folk deities, Mahabharata lore, Toddy tappers, weaver legends, vivid red backgrounds.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Cheriyal_scroll_painting.jpg"
+  },
+  {
+    id: 'jaipur',
+    name: "Jaipur",
+    lat: 26.912,
+    lng: 75.787,
+    state: "Rajasthan",
+    category: "Metal & Crafts",
+    tradition: "Jaipur Blue Pottery",
+    summary: "Distinct Turko-Persian glazed pottery made without using clay, featuring rich Egyptian blue oxide glazes.",
+    history: "Introduced to Jaipur by Maharaja Sawai Ram Singh II in the 19th century, blending Turko-Persian glazing techniques with local craftsmanship.",
+    materials: "Quartz stone powder, powdered glass, Fuller's earth (Multani Mitti), gum, copper oxide, cobalt oxide.",
+    motifs: "Arabesque floral tendrils, geometric lattice (jaali), birds, animal motifs.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jaipur_blue_pottery.jpg"
+  },
+  {
+    id: 'bidar',
+    name: "Bidar",
+    lat: 17.913,
+    lng: 77.519,
+    state: "Karnataka",
+    category: "Metal & Crafts",
+    tradition: "Bidriware Metalwork",
+    summary: "Striking black zinc-copper alloy metalwork inlaid with brilliant pure silver sheet wire engraving.",
+    history: "Originated in the 14th century under the Bahmani Sultans of Bidar, who imported Persian metal inlay artisans.",
+    materials: "Zinc and copper alloy (16:1 ratio), pure silver inlay wire, special ammonium chloride soil from Bidar Fort.",
+    motifs: "Poppy flowers, Persian floral creepers, Quranic calligraphy, star patterns.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bidriware_metal_craft_Bidar.jpg"
+  },
+  {
+    id: 'varanasi',
+    name: "Varanasi",
+    lat: 25.318,
+    lng: 82.974,
+    state: "Uttar Pradesh",
+    category: "Textiles & Toys",
+    tradition: "Banarasi Brocade & Sanjhi",
+    summary: "Luxurious silk brocade weaving rich in real Zari gold thread, alongside stencil Sanjhi paper cutting art.",
+    history: "Varanasi has been an epicenter of fine weaving since Mughal times, blending Persian floral motifs with Hindu sacred craftsmanship.",
+    materials: "Pure mulberry silk, real gold and silver metallic threads (Zari), fine steel shears for Sanjhi stencils.",
+    motifs: "Jhallar leaf borders, Kalga/Paisley, hunting scenes (Shikargah), lotus ponds.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Banarasi_silk_weaving.jpg"
+  },
+  {
+    id: 'pochampally',
+    name: "Pochampally",
+    lat: 17.348,
+    lng: 78.815,
+    state: "Telangana",
+    category: "Textiles & Toys",
+    tradition: "Pochampally Ikat Textile",
+    summary: "Intricate double-ikat resist dye textile weaving creating feather-edged geometric patterns.",
+    history: "Known as 'Silk City of India', Pochampally Ikat won GI status for its unique tie-and-dye weaving precision dating back centuries.",
+    materials: "Pure silk and cotton yarns, natural and azo-free dyes, handloom pit looms.",
+    motifs: "Geometric diamond lattices, parrots, elephants, traditional chevron motifs.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Pochampally_Ikat_weaving.jpg"
+  },
+  {
+    id: 'srinagar',
+    name: "Srinagar",
+    lat: 34.083,
+    lng: 74.797,
+    state: "Jammu & Kashmir",
+    category: "Metal & Crafts",
+    tradition: "Papier-Mâché Craft",
+    summary: "Delicately painted paper pulp boxes, vases, and trays lacquered with intricate Persian motifs.",
+    history: "Brought from Persia by Sufi saint Mir Sayyid Ali Hamadani in the 14th century and fostered during the Mughal era in Kashmir.",
+    materials: "Molded waste paper pulp, rice paste glue, gold foil, miniature animal hair brushes, lacquer glaze.",
+    motifs: "Hazara (thousand flowers), chinar leaves, kingfishers, almonds, Gul-ender-gul (flower within flower).",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kashmir_Papier_Mache_craft.jpg"
+  },
+  {
+    id: 'thrissur',
+    name: "Thrissur / Kochi",
+    lat: 10.528,
+    lng: 76.214,
+    state: "Kerala",
+    category: "Paintings",
+    tradition: "Kerala Temple Murals",
+    summary: "Frescoes painted on temple shrine walls in rich earth shades (Panchavarna) depicting epic legends.",
+    history: "Flourished between the 15th and 18th centuries across Kerala temples and palaces like Mattancherry Palace.",
+    materials: "Laterite soil wall plaster, coconut water, mineral ochres, indigo, lime, wooden brushes.",
+    motifs: "Anantasayana Vishnu, Shiva Nataraja, temple deities with stylized eyes and graceful mudras.",
+    image: "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kerala_Temple_Mural_painting.jpg"
+  }
 ];
 
-// Loop through locations to add markers and popups with images
-places.forEach(p => {
-    let m = L.marker([p[1], p[2]]).addTo(map);
-    m.bindPopup(`
-        <div>
-            <h2>${p[0]}</h2>
-            <b>Region:</b> ${p[3]}<br>
-            <b>Art tradition:</b> ${p[4]}
-            <p>${p[5]}</p>
-            <img src="${p[6]}" alt="${p[4]}" class="popup-img">
-        </div>
-    `);
-});
+// Application State Variables
+let map;
+let markers = {};
+let activeId = null;
+let activeCategory = 'All';
+let searchQuery = '';
 
-// Add a control legend box to the bottom right of the map
-const legend = L.control({position: 'bottomright'});
-legend.onAdd = () => {
-    let d = L.DomUtil.create('div', 'legend');
-    d.innerHTML = '<b>How to use</b><br>🔎 Zoom with + / −<br>📍 Click a marker for details';
-    return d;
+function initMap() {
+  // Center over central India
+  map = L.map('map', {
+    zoomControl: false,
+    minZoom: 4,
+    maxZoom: 12
+  }).setView([21.8, 79.0], 5);
+
+  // CartoDB Dark Matter / Alidade Smooth Dark Tile Layer
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 18
+  }).addTo(map);
+
+  // Zoom control on top right
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
+  renderMarkers();
+}
+
+function createMarkerIcon(isActive = false) {
+  const pinColor = isActive ? '#f59e0b' : '#10b981';
+  const pulseHtml = isActive ? `<div class="marker-pulse-ring"></div>` : '';
+  
+  return L.divIcon({
+    className: '',
+    html: `
+      <div class="jewel-marker-pin ${isActive ? 'active' : ''}">
+        ${pulseHtml}
+        <svg width="32" height="32" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="18" cy="18" r="15" fill="${pinColor}" stroke="#0d1117" stroke-width="2.5" class="shadow-xl"/>
+          <circle cx="18" cy="18" r="5" fill="#0d1117"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18]
+  });
+}
+
+// Add Map Markers
+function renderMarkers() {
+  artLocations.forEach(loc => {
+    const marker = L.marker([loc.lat, loc.lng], {
+      icon: createMarkerIcon(false)
+    }).addTo(map);
+
+    // Dark Leaflet Popup Content
+    const popupHtml = `
+      <div class="space-y-1.5">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emeraldGlow px-2 py-0.5 rounded-full bg-emeraldGlow/10 border border-emeraldGlow/20">${loc.state}</span>
+        <h4 class="font-serif font-bold text-sm text-textMain">${loc.name}</h4>
+        <p class="text-xs font-semibold text-amberGlow">${loc.tradition}</p>
+        <button onclick="openModal('${loc.id}')" class="mt-2 w-full py-1.5 rounded-lg bg-emeraldGlow text-obsidian text-xs font-bold hover:bg-emeraldGlow-hover transition-all flex items-center justify-center gap-1">
+          <span>Read Heritage Story</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        </button>
+      </div>
+    `;
+
+    marker.bindPopup(popupHtml, {
+      offset: [0, -10]
+    });
+
+    marker.on('click', () => {
+      selectLocation(loc.id, false);
+    });
+
+    markers[loc.id] = marker;
+  });
+}
+
+function renderCards() {
+  const container = document.getElementById('cardsContainer');
+  container.innerHTML = '';
+
+  const filtered = artLocations.filter(loc => {
+    const matchCat = activeCategory === 'All' || loc.category === activeCategory;
+    const matchSearch = loc.name.toLowerCase().includes(searchQuery) ||
+                        loc.state.toLowerCase().includes(searchQuery) ||
+                        loc.tradition.toLowerCase().includes(searchQuery) ||
+                        loc.summary.toLowerCase().includes(searchQuery);
+    return matchCat && matchSearch;
+  });
+
+  document.getElementById('filteredCountText').innerText = `${filtered.length} of ${artLocations.length} locations shown`;
+  document.getElementById('feedStatusLabel').innerText = `Displaying ${filtered.length} art traditions`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="p-8 text-center text-textMuted">
+        <i class="fa-solid fa-compass-drafting text-3xl text-amberGlow mb-2"></i>
+        <p class="font-serif text-sm font-bold text-textMain">No art traditions found</p>
+        <p class="text-xs mt-1">Try tweaking your search query or filter category.</p>
+      </div>
+    `;
+    return;
+  }
+
+  filtered.forEach(loc => {
+    const isActive = loc.id === activeId;
+    const card = document.createElement('div');
+    card.id = `card-${loc.id}`;
+    card.className = `group p-3.5 rounded-2xl border transition-all cursor-pointer ${
+      isActive 
+        ? 'bg-surfaceLight border-amberGlow shadow-lg ring-1 ring-amberGlow/30' 
+        : 'bg-obsidian/60 border-borderCustom hover:border-emeraldGlow/40 hover:bg-surfaceLight/50'
+    }`;
+
+    card.innerHTML = `
+      <div class="flex gap-3.5 items-center">
+        <div class="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-surfaceLight border border-borderCustom relative">
+          <img src="${loc.image}" alt="${loc.tradition}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" onerror="this.src='https://placehold.co/100x100/161b22/f0f6fc?text=Art'">
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-emeraldGlow px-2 py-0.5 rounded-full bg-emeraldGlow/10 border border-emeraldGlow/20 truncate">${loc.state}</span>
+            <span class="text-[10px] font-semibold text-textMuted bg-surfaceLight px-2 py-0.5 rounded-full border border-borderCustom">${loc.category}</span>
+          </div>
+          <h3 class="font-serif font-bold text-sm text-textMain group-hover:text-amberGlow transition-colors truncate">${loc.name}</h3>
+          <p class="text-xs font-semibold text-textMuted truncate">${loc.tradition}</p>
+        </div>
+      </div>
+
+      <p class="text-xs text-textMuted/90 line-clamp-2 mt-2 leading-relaxed">${loc.summary}</p>
+
+      <div class="mt-3 pt-2 border-t border-borderCustom flex items-center justify-between text-xs">
+        <span class="text-textMuted text-[11px] group-hover:text-emeraldGlow transition-colors"><i class="fa-solid fa-location-crosshairs mr-1"></i>Locate</span>
+        <button onclick="openModal('${loc.id}'); event.stopPropagation();" class="text-amberGlow font-semibold hover:underline flex items-center gap-1">
+          Heritage Story <i class="fa-solid fa-chevron-right text-[9px]"></i>
+        </button>
+      </div>
+    `;
+
+    card.addEventListener('click', () => {
+      selectLocation(loc.id, true);
+    });
+
+    container.appendChild(card);
+  });
+}
+
+// Select Location Logic
+function selectLocation(id, zoomMap = true) {
+  if (activeId && markers[activeId]) {
+    markers[activeId].setIcon(createMarkerIcon(false));
+  }
+
+  activeId = id;
+
+  if (markers[id]) {
+    markers[id].setIcon(createMarkerIcon(true));
+    if (zoomMap) {
+      markers[id].openPopup();
+    }
+  }
+
+  const loc = artLocations.find(l => l.id === id);
+  if (zoomMap && loc) {
+    map.flyTo([loc.lat, loc.lng], 8, {
+      animate: true,
+      duration: 1.2
+    });
+  }
+
+  renderCards();
+
+  const activeCard = document.getElementById(`card-${id}`);
+  if (activeCard) {
+    activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function openModal(id) {
+  const loc = artLocations.find(l => l.id === id);
+  if (!loc) return;
+
+  document.getElementById('modalHeroImg').src = loc.image;
+  document.getElementById('modalTitle').innerText = loc.name;
+  document.getElementById('modalStateTag').innerText = loc.state;
+  document.getElementById('modalCategoryTag').innerText = loc.category;
+  document.getElementById('modalTradition').innerText = loc.tradition;
+  document.getElementById('modalHistory').innerText = loc.history;
+  document.getElementById('modalMaterials').innerText = loc.materials;
+  document.getElementById('modalMotifs').innerText = loc.motifs;
+  document.getElementById('modalCoords').innerHTML = `<i class="fa-solid fa-location-dot text-emeraldGlow mr-1"></i> ${loc.lat.toFixed(3)}° N, ${loc.lng.toFixed(3)}° E`;
+
+  const modal = document.getElementById('detailModal');
+  const card = document.getElementById('modalCard');
+
+  modal.classList.remove('opacity-0', 'pointer-events-none');
+  card.classList.remove('scale-95');
+  card.classList.add('scale-100');
+
+  document.getElementById('modalLocateBtn').onclick = () => {
+    closeModal();
+    selectLocation(loc.id, true);
+
+    // On mobile screens, switch automatically to map pane
+    if (window.innerWidth < 768) {
+      document.getElementById('sidebarSection').classList.add('-translate-x-full');
+      document.getElementById('mobileViewMap').classList.add('bg-emeraldGlow', 'text-obsidian');
+      document.getElementById('mobileViewList').classList.remove('bg-emeraldGlow', 'text-obsidian');
+    }
+  };
+}
+
+function closeModal() {
+  const modal = document.getElementById('detailModal');
+  const card = document.getElementById('modalCard');
+
+  modal.classList.add('opacity-0', 'pointer-events-none');
+  card.classList.remove('scale-100');
+  card.classList.add('scale-95');
+}
+
+function setupEvents() {
+  // Live Search Input Listener
+  const searchInput = document.getElementById('searchInput');
+  const clearSearch = document.getElementById('clearSearch');
+
+  searchInput.addEventListener('input', (e) => {
+    searchQuery = e.target.value.toLowerCase().trim();
+    clearSearch.classList.toggle('hidden', searchQuery === '');
+    renderCards();
+  });
+
+  clearSearch.addEventListener('click', () => {
+    searchInput.value = '';
+    searchQuery = '';
+    clearSearch.classList.add('hidden');
+    renderCards();
+  });
+
+  // Filter Category Pills
+  const pills = document.querySelectorAll('.filter-pill');
+  pills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      pills.forEach(p => {
+        p.className = 'filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all bg-surfaceLight border border-borderCustom text-textMuted hover:text-textMain hover:border-emeraldGlow';
+      });
+      pill.className = 'filter-pill active px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all bg-emeraldGlow text-obsidian shadow-md';
+
+      activeCategory = pill.dataset.category;
+      renderCards();
+    });
+  });
+
+  // Close Modal Listeners
+  document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+  document.getElementById('detailModal').addEventListener('click', (e) => {
+    if (e.target.id === 'detailModal') closeModal();
+  });
+
+  // Reset Map View Button
+  document.getElementById('resetMapBounds').addEventListener('click', () => {
+    map.flyTo([21.8, 79.0], 5, { duration: 1 });
+    if (activeId && markers[activeId]) {
+      markers[activeId].setIcon(createMarkerIcon(false));
+      activeId = null;
+      renderCards();
+    }
+  });
+
+  // Mobile View Switcher
+  const mobileList = document.getElementById('mobileViewList');
+  const mobileMap = document.getElementById('mobileViewMap');
+  const sidebarSection = document.getElementById('sidebarSection');
+
+  mobileList.addEventListener('click', () => {
+    sidebarSection.classList.remove('-translate-x-full');
+    mobileList.classList.add('bg-emeraldGlow', 'text-obsidian');
+    mobileMap.classList.remove('bg-emeraldGlow', 'text-obsidian');
+  });
+
+  mobileMap.addEventListener('click', () => {
+    sidebarSection.classList.add('-translate-x-full');
+    mobileMap.classList.add('bg-emeraldGlow', 'text-obsidian');
+    mobileList.classList.remove('bg-emeraldGlow', 'text-obsidian');
+  });
+}
+
+window.onload = function() {
+  initMap();
+  renderCards();
+  setupEvents();
 };
-legend.addTo(map);
 </script>
 </body>
 </html>
